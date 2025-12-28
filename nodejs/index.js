@@ -22,9 +22,12 @@ const NEZHA_KEY = process.env.NEZHA_KEY || '';               // v1的NZ_CLIENT_S
 const ARGO_DOMAIN = process.env.ARGO_DOMAIN || '';           // argo固定隧道域名,留空即使用临时隧道
 const ARGO_AUTH = process.env.ARGO_AUTH || '';               // argo固定隧道token或json,留空即使用临时隧道
 const ARGO_PORT = process.env.ARGO_PORT || 8001;             // argo固定隧道端口,使用token需在cloudflare控制台设置和这里一致，否则节点不通
+const S5_PORT = process.env.S5_PORT || '';                   // socks5端口，支持多端口的可以填写，否则留空
 const TUIC_PORT = process.env.TUIC_PORT || '';               // tuic端口，支持多端口的可以填写，否则留空
 const HY2_PORT = process.env.HY2_PORT || '';                 // hy2端口，支持多端口的可以填写，否则留空
+const ANYTLS_PORT = process.env.ANYTLS_PORT || '';           // AnyTLS端口，支持多端口的可以填写，否则留空
 const REALITY_PORT = process.env.REALITY_PORT || '';         // reality端口，支持多端口的可以填写，否则留空
+const ANYREALITY_PORT = process.env.ANYREALITY_PORT || '';   // Anyr-eality端口，支持多端口的可以填写，否则留空
 const CFIP = process.env.CFIP || 'cdns.doon.eu.org';         // 优选域名或优选IP
 const CFPORT = process.env.CFPORT || 443;                    // 优选域名或优选IP对应端口
 const PORT = process.env.PORT || 3000;                       // http订阅端口    
@@ -441,40 +444,47 @@ eQ6OFb9LbLYL9f+sAiAffoMbi4y/0YUSlTtz7as9S8/lciBF5VCUoVIKS+vX2g==
           }
         }
       ],
+      "endpoints": [
+        {
+          "type": "wireguard",
+          "tag": "wireguard-out",
+          "mtu": 1280,
+          "address": [
+              "172.16.0.2/32",
+              "2606:4700:110:8dfe:d141:69bb:6b80:925/128"
+          ],
+          "private_key": "YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
+          "peers": [
+            {
+              "address": "engage.cloudflareclient.com",
+              "port": 2408,
+              "public_key": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+              "allowed_ips": ["0.0.0.0/0", "::/0"],
+              "reserved": [78, 135, 76]
+            }
+          ]
+        }
+      ],
       "outbounds": [
         {
           "type": "direct",
           "tag": "direct"
-        },
-        {
-          "type": "wireguard",
-          "tag": "wireguard-out",
-          "server": "engage.cloudflareclient.com",
-          "server_port": 2408,
-          "local_address": [
-            "172.16.0.2/32",
-            "2606:4700:110:851f:4da3:4e2c:cdbf:2ecf/128"
-          ],
-          "private_key": "eAx8o6MJrH4KE7ivPFFCa4qvYw5nJsYHCBQXPApQX1A=",
-          "peer_public_key": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
-          "reserved": [82, 90, 51],
-          "mtu": 1420
         }
       ],
       "route": {
         "rule_set": [
           {
-            "tag": "openai",
-            "type": "remote",
-            "format": "binary",
-            "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo-lite/geosite/openai.srs",
-            "download_detour": "direct"
-          },
-          {
             "tag": "netflix",
             "type": "remote",
             "format": "binary",
-            "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo-lite/geosite/netflix.srs",
+            "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/netflix.srs",
+            "download_detour": "direct"
+          },
+          {
+            "tag": "openai",
+            "type": "remote",
+            "format": "binary",
+            "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/openai.srs",
             "download_detour": "direct"
           }
         ],
@@ -566,6 +576,82 @@ eQ6OFb9LbLYL9f+sAiAffoMbi4y/0YUSlTtz7as9S8/lciBF5VCUoVIKS+vX2g==
             "alpn": ["h3"],
             "certificate_path": path.join(FILE_PATH, "cert.pem"),
             "key_path": path.join(FILE_PATH, "private.key")
+          }
+        });
+      }
+    } catch (error) {
+      // 忽略错误，继续运行
+    }
+
+    // S5配置
+    try {
+      if (isValidPort(S5_PORT)) {
+        config.inbounds.push({
+          "tag": "s5-in",
+          "type": "socks",
+          "listen": "::",
+          "listen_port": parseInt(S5_PORT),
+          "users": [
+            {
+              "username": UUID.substring(0, 8),
+              "password": UUID.slice(-12)
+            }
+          ]
+        });
+      }
+    } catch (error) {
+      // 忽略错误，继续运行
+    }
+
+    // AnyTLS配置
+    try {
+      if (isValidPort(ANYTLS_PORT)) {
+        config.inbounds.push({
+          "tag": "anytls-in",
+          "type": "anytls",
+          "listen": "::",
+          "listen_port": parseInt(ANYTLS_PORT),
+          "users": [
+            {
+              "password": UUID
+            }
+          ],
+          "tls": {
+            "enabled": true,
+            "certificate_path": path.join(FILE_PATH, "cert.pem"),
+            "key_path": path.join(FILE_PATH, "private.key")
+          }
+        });
+      }
+    } catch (error) {
+      // 忽略错误，继续运行
+    }
+
+    // AnyReality配置
+    try {
+      if (isValidPort(ANYREALITY_PORT)) {
+        config.inbounds.push({
+          "tag": "anyreality-in",
+          "type": "anytls",
+          "listen": "::",
+          "listen_port": parseInt(ANYREALITY_PORT),
+          "users": [
+            {
+              "password": UUID
+            }
+          ],
+          "tls": {
+            "enabled": true,
+            "server_name": "www.iij.ad.jp",
+            "reality": {
+              "enabled": true,
+              "handshake": {
+                "server": "www.iij.ad.jp",
+                "server_port": 443
+              },
+              "private_key": privateKey, 
+              "short_id": [""]
+            }
           }
         });
       }
@@ -748,12 +834,12 @@ function getFilesForArchitecture(architecture) {
   let baseFiles;
   if (architecture === 'arm') {
     baseFiles = [
-      { fileName: "web", fileUrl: "https://arm64.ssss.nyc.mn/sbx" },
+      { fileName: "web", fileUrl: "https://arm64.ssss.nyc.mn/sb" },
       { fileName: "bot", fileUrl: "https://arm64.ssss.nyc.mn/bot" }
     ];
   } else {
     baseFiles = [
-      { fileName: "web", fileUrl: "https://amd64.ssss.nyc.mn/sbx" },
+      { fileName: "web", fileUrl: "https://amd64.ssss.nyc.mn/sb" },
       { fileName: "bot", fileUrl: "https://amd64.ssss.nyc.mn/bot" }
     ];
   }
@@ -840,7 +926,28 @@ async function extractDomains() {
     }
   }
 }
-  
+
+// 获取isp信息
+async function getMetaInfo() {
+  try {
+    const response1 = await axios.get('https://api.ip.sb/geoip', { headers: { 'User-Agent': 'Mozilla/5.0', timeout: 3000 }});
+    if (response1.data && response1.data.country_code && response1.data.isp) {
+      return `${response1.data.country_code}_${response1.data.isp}`.replace(/\s+/g, '_');
+    }
+  } catch (error) {
+      try {
+        // 备用 ip-api.com 获取isp
+        const response2 = await axios.get('http://ip-api.com/json', { headers: { 'User-Agent': 'Mozilla/5.0', timeout: 3000 }});
+        if (response2.data && response2.data.status === 'success' && response2.data.countryCode && response2.data.org) {
+          return `${response2.data.countryCode}_${response2.data.org}`.replace(/\s+/g, '_');
+        }
+      } catch (error) {
+        // console.error('Backup API also failed');
+      }
+  }
+  return 'Unknown';
+}
+
 // 生成 list 和 sub 信息
 async function generateLinks(argoDomain) {
   let SERVER_IP = '';
@@ -864,31 +971,7 @@ async function generateLinks(argoDomain) {
     }
   }
 
-  let ISP = '';
-  try {
-      const metaResponse = await axios.get('https://api.ip.sb/geoip', { 
-          headers: { 'User-Agent': 'Mozilla/5.0',
-          timeout: 5000 }
-      });
-      const countryCode = metaResponse.data?.country_code;
-      const isp = metaResponse.data?.isp;
-      if (countryCode && isp) {
-          ISP = `${countryCode}-${isp.replace(/\s+/g, '_')}`;
-      } else {
-          throw new Error('Missing fields');
-      }
-  } catch (err) {
-      try {
-          const backupInfo = execSync(
-              'curl -sm 3 -H "User-Agent: Mozilla/5.0" "https://ipapi.co/json" | tr -d \'\\n\' | awk -F\\" \'{print $32"-"$92}\' | sed \'s/ /_/g\'',
-              { encoding: 'utf-8' }
-          ).trim();
-          ISP = (backupInfo && backupInfo !== '-') ? backupInfo : 'Unknown';
-      } catch (curlErr) {
-          console.error('Failed to get ISP information:', curlErr.message);
-          ISP = 'Unknown';
-      }
-  }
+  const ISP = await getMetaInfo();
   const nodeName = NAME ? `${NAME}-${ISP}` : ISP;
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -918,10 +1001,30 @@ async function generateLinks(argoDomain) {
         subTxt += vlessNode;
       }
 
+      // ANYTLS_PORT是有效端口号时生成anytls节点
+      if (isValidPort(ANYTLS_PORT)) {
+        const anytlsNode = `\nanytls://${UUID}@${SERVER_IP}:${ANYTLS_PORT}?security=tls&sni=${SERVER_IP}&fp=chrome&insecure=1&allowInsecure=1#${nodeName}`;
+        subTxt += anytlsNode;
+      }
+
+      // ANYREALITY_PORT是有效端口号时生成anyreality节点
+      if (isValidPort(ANYREALITY_PORT)) {
+        const anyrealityNode = `\nanytls://${UUID}@${SERVER_IP}:${ANYREALITY_PORT}?security=reality&sni=www.iij.ad.jp&fp=chrome&pbk=${publicKey}&type=tcp&headerType=none#${nodeName}`;
+        subTxt += anyrealityNode;
+      }
+
+      // S5_PORT是有效端口号时生成socks5节点 
+      if (isValidPort(S5_PORT)) {
+        const S5_AUTH = Buffer.from(`${UUID.substring(0, 8)}:${UUID.slice(-12)}`).toString('base64');
+        const s5Node = `\nsocks://${S5_AUTH}@${SERVER_IP}:${S5_PORT}#${nodeName}`;
+        subTxt += s5Node;
+      }
+
       // 打印 sub.txt 内容到控制台
-      console.log(Buffer.from(subTxt).toString('base64')); 
+      console.log('\x1b[32m' + Buffer.from(subTxt).toString('base64') + '\x1b[0m'); // 输出绿色
       fs.writeFileSync(subPath, Buffer.from(subTxt).toString('base64'));
       fs.writeFileSync(listPath, subTxt, 'utf8');
+      console.log('\nLogs will be deleted in 90 seconds,you can copy the above nodes');
       console.log(`${FILE_PATH}/sub.txt saved successfully`);
       sendTelegram(); // 发送tg消息提醒
       uplodNodes(); // 推送节点到订阅器
@@ -1062,14 +1165,20 @@ async function startserver() {
   cleanupOldFiles();
   argoType();
   await downloadFilesAndRun();
-  AddVisitTask();
+  await AddVisitTask();
   cleanFiles();
 }
 startserver();
 
 // 根路由
-app.get("/", function(req, res) {
-  res.send("Hello world!");
+app.get("/", async function(req, res) {
+  try {
+    const filePath = path.join(__dirname, 'index.html');
+    const data = await fs.promises.readFile(filePath, 'utf8');
+    res.send(data);
+  } catch (err) {
+    res.send("Hello world!<br><br>You can visit /{SUB_PATH}(Default: /sub) get your nodes!");
+  }
 });
-  
+
 app.listen(PORT, () => console.log(`server is running on port:${PORT}!`));
